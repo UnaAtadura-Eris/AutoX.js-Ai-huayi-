@@ -5,9 +5,9 @@
  * @Date: 2026.03.14
  */
 
-// main()
+main()
 // showTimeText()
-play_video() 
+// play_video() 
 
 // 显示进度条：点击视频区域
 function showTimeText() {
@@ -99,12 +99,12 @@ function play_video() {
 
             // 5. 计算进度
             let percent = playSec / videoSec;
-            log(`当前进度：${(percent * 100).toFixed(1)}% (${playText}/${videoText})`);
+            log(`当前进度：${(percent * 100).toFixed(2)}% (${playText}/${videoText})`);
 
             // ============================
             // 【触发条件2：播放完成】
             // ============================
-            if (percent >= 0.99 || playSec >= videoSec) {
+            if (percent >= 0.995 || playSec >= videoSec) {
                 log("✅ 视频即将播放完成,等待10秒后退出");
                 sleep(10 * 1000); // 等待10秒
                 if (finishText) {
