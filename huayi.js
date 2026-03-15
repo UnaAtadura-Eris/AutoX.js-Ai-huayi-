@@ -1,6 +1,6 @@
 /**代码原作者
  * @Description: AutoX.js Ai-huayi 
- * @version: 1.0.0
+ * @version: 1.0.1
  * @Author: UnaAtadura
  * @Date: 2026.03.14
  */
@@ -8,6 +8,15 @@
 main()
 // showTimeText()
 // play_video() 
+// handleClassThinking()
+
+
+
+
+
+
+
+
 
 // 显示进度条：点击视频区域
 function showTimeText() {
@@ -34,9 +43,6 @@ function showTimeText() {
 }
 
 
-
-
-
 /**
  * @description: 检测视频完成播放及课堂问答
  * @param: null
@@ -46,6 +52,9 @@ function play_video() {
     // 最大等待时间：1小时（3600秒）
     const MAX_WAIT_SECONDS = 4000;
     let startTime = new Date().getTime();
+
+    // 🔥 记录上一次进度
+    let lastPercent = 0;
 
     while (true) {
         try {
@@ -70,9 +79,17 @@ function play_video() {
             let finishText = text("本课件已学习完毕").findOne(1000);
             if (finishText) {
                 log("✅ 检测到：本课件已学习完毕");
-                // 点击返回按钮
                 id("com.huayi.cme:id/btn_test_result_left").click();
                 toast("✅ 返回上一页");
+                break;
+            }
+            let finishText2 = text("请点击左下角“考试”按钮参加课后测试，通过后即为学完本课件。").findOne(1000);
+            if (finishText2) {
+                log("✅ 检测到：“考试”按钮");
+                id("com.huayi.cme:id/btnAlertDialogConfirm").click();
+                sleep(500)
+                toast("✅ 返回上一页");                
+                back();
                 break;
             }
 
@@ -101,28 +118,40 @@ function play_video() {
             let percent = playSec / videoSec;
             log(`当前进度：${(percent * 100).toFixed(2)}% (${playText}/${videoText})`);
 
+            // ==============================================
+            // 🔥 最终逻辑：上一次 > 当前 = 播放完成
+            // ==============================================
+            if (lastPercent > 0 && percent < lastPercent) {
+                log("✅ 检测到进度倒退，视频已播放完毕，自动退出");
+                toast("✅ 视频已完成");
+                back();
+                break;
+            }
+
             // ============================
             // 【触发条件2：播放完成】
             // ============================
-            if (percent >= 0.995 || playSec >= videoSec) {
-                log("✅ 视频即将播放完成,等待10秒后退出");
-                sleep(10 * 1000); // 等待10秒
-                if (finishText) {
+            if (percent >= 0.999 || playSec >= videoSec) {
+                log("✅ 视频即将播放完成,等待5秒后退出");
+                sleep(5 * 1000);
+                if (text("本课件已学习完毕").exists()) {
                     log("✅ 检测到：本课件已学习完毕");
-                    // 点击返回按钮
                     id("com.huayi.cme:id/btn_test_result_left").click();
                     toast("✅ 返回上一页");
-                    break;
                 } else {
                     back();
                     toast("✅ 返回上一页");
-                    break;
                 }
+                break;
             }
+
+            // 保存本次进度
+            lastPercent = percent;
+
         } catch (e) {
             log("⚠️ 异常，继续运行：" + e);
         }
-        sleep(5000);
+        sleep(10000);
     }
 }
 
@@ -146,62 +175,57 @@ function handleClassThinking() {
         return;
     }
 
-    console.log("🔍 发现课堂思考，开始处理...");
+    console.log("🔍 发现课堂思考，开始自动答题...");
     const QUESTION_ITEM_ID = "com.huayi.cme:id/rl_cheack_item_quest_single_top";
     const SUBMIT_BTN_ID = "com.huayi.cme:id/btn_middle_question_comit";
 
-    // 第1次：选第1个选项并提交
-    let options = id(QUESTION_ITEM_ID).find();
-    if (options.length >= 1) {
-        options.get(0).click();
-        console.log("📝 已选择第1个选项");
-    } else {
-        console.log("⚠️ 未找到选项，跳过处理");
-        return;
-    }
+    // 最多循环5次
+    const MAX_TRY = 5;
+    let tryCount = 0;
 
-    // 点击提交
-    let submitBtn = id(SUBMIT_BTN_ID).findOne(3000);
-    if (submitBtn) {
-        submitBtn.click();
-        sleep(3000); // 等待提交结果
-        console.log("📤 已提交第1次答案");
-    } else {
-        console.log("⚠️ 未找到提交按钮，跳过处理");
-        return;
-    }
+    // 循环答题
+    while (textContains("课堂思考").exists() && tryCount < MAX_TRY) {
+        tryCount++;
+        console.log(`\n===== 第 ${tryCount} 次尝试 =====`);
 
-    // 检查是否还存在课堂思考（存在则说明第1个选项错误）
-    if (textContains("课堂思考").exists()) {
-        console.log("⚠️ 第1个选项错误，尝试第2个选项");
-
-        // 第2次：选第2个选项并提交
-        if (options.length >= 2) {
-            options.get(1).click();
-            console.log("📝 已选择第2个选项");
-        } else {
-            console.log("⚠️ 未找到第2个选项，跳过处理");
+        // 获取选项
+        let options = id(QUESTION_ITEM_ID).find();
+        if (options.length < 2) {
+            console.log("⚠️ 选项不足2个，无法切换，退出");
             return;
         }
 
-        // 再次提交
-        submitBtn = id(SUBMIT_BTN_ID).findOne(3000);
-        if (submitBtn) {
-            submitBtn.click();
-            sleep(3000);
-            console.log("📤 已提交第2次答案");
-        } else {
-            console.log("⚠️ 未找到提交按钮，跳过处理");
+        // ======================================
+        // 核心逻辑：奇数次选第1个，偶数次选第2个
+        // ======================================
+        let selectIndex = tryCount % 2 === 1 ? 0 : 1;
+        let option = options.get(selectIndex);
+
+        // 直接点击，不判断选中
+        option.click();
+        console.log(`📝 已选择第 ${selectIndex + 1} 个选项`);
+        sleep(300);
+
+        // 提交
+        id(SUBMIT_BTN_ID).click();
+        console.log("✅ 已提交答案");
+        sleep(1000); // 等待页面刷新
+
+        // 检查是否答对
+        if (!textContains("课堂思考").exists()) {
+            console.log(`🎉 答题成功！共尝试 ${tryCount} 次`);
+            id("com.huayi.cme:id/btnAlertDialogConfirm").findOne(3000)?.click();
             return;
         }
+
+        console.log(`❌ 答案错误，继续尝试...`);
     }
 
-    // 关闭确认弹窗
-    id("com.huayi.cme:id/btnAlertDialogConfirm").findOne(3000)?.click();
-    console.log("🎉 课堂思考处理完成");
+    // 超过次数退出
+    if (tryCount >= MAX_TRY) {
+        console.log("⚠️ 已达到最大尝试次数（5次），停止答题");
+    }
 }
-
-
 
 
 /**
