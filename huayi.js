@@ -478,53 +478,66 @@ function play_video() {
 }
 
 function study_card() {
-    let targetList = textMatches(/.*(未学习|播放至).*/).find();
-    if (targetList.length === 0) { log("无未学习"); return; }
-    log("找到" + targetList.length + "个未学");
-    sleep(1500);
-    for (let i = 0; i < targetList.length; i++) {
-        let view = targetList[i];
-        let card = null;
-        let temp = view;
-        for (let k = 0; k < 8; k++) {
-            if (!temp) break;
-            if (temp.id() === "com.huayi.cme:id/rl_item_course_detail") {
-                card = temp; break;
+    log("=== 开始学习未学习课程===");
+    
+    // 循环：一直找，直到没有符合条件的课程
+    while (true) {
+        // 每次都重新获取所有卡片（关键！）
+        let allCards = id("com.huayi.cme:id/rl_item_course_detail").find();
+        let foundValidCard = false;
+
+        // 遍历找【第一个】符合条件的
+        for (let i = 0; i < allCards.length; i++) {
+            let card = allCards[i];
+            let textViews = card.find(className("android.widget.TextView"));
+            let hasUnstudy = false;
+            let hasInteractive = false;
+
+            for (let j = 0; j < textViews.length; j++) {
+                let t = textViews[j].text().trim();
+                if (t.includes("未学习")|| t.includes("播放至") ) hasUnstudy = true;
+                if (t.includes("互动病例演练")) hasInteractive = true;
             }
-            temp = temp.parent();
+
+            // 满足条件：未学习 且 不是互动病例
+            if (hasUnstudy && !hasInteractive) {
+                log("✅ 找到有效未学习课程，开始学习");
+                card.click();
+                sleep(1000);     
+                play_video();
+                // log("✅ 假装学完");
+                back(); sleep(1000);                
+                foundValidCard = true;
+                break; // 学完一个，立刻重新找下一个
+            }
         }
-        if (!card) { log("跳过"); continue; }
-        
-        // 检查卡片内是否包含“互动病例演练”文本，若包含则跳过
-        let hasInteractive = card.findOne(text("互动病例演练"));
-        if (hasInteractive) {
-            log("跳过互动病例演练"); 
-            continue;
+
+        // 再也找不到了，退出
+        if (!foundValidCard) {
+            log("=== 所有未学习课程已完成 ===");
+            back();sleep(1000);  
+            break;
         }
-        
-        card.click(); sleep(3000);
-        play_video();
-        sleep(2500);
-        // targetList = textMatches(/.*(未学习|播放至).*/).find();
     }
 }
 
-
 function auto_study() {
-    let courses = id("com.huayi.cme:id/ll_mylike_course").find();
-    if (courses.length === 0) { log("无课程"); return; }
-    for (let i = 0; i < courses.length; i++) {
-        courses[i].click(); sleep(2000);
-        for (let k = 0; k < 3; k++) {
-            if (textContains("未学习").exists() || textContains("播放至").exists()) {
-                study_card();
-            } else {
-                back(); sleep(1000);
-                break
-            }
-        }
-        // courses = id("com.huayi.cme:id/ll_mylike_course").find();
+    const courseId = "com.huayi.cme:id/ll_mylike_course";
+    let courses = id(courseId).find();
+    if (courses.length === 0) {
+        log("未找到任何课程");
+        return;
     }
+    log("找到 " + courses.length + " 个课程");
+    for (let i = 0; i < courses.length; i++) {
+        log("正在打开第 " + (i + 1) + " 个课程");
+        courses[i].click();
+        sleep(2000);
+        study_card(); 
+        // 重新获取课程列表，避免界面刷新导致控件失效
+        courses = id(courseId).find();
+    }
+    log("✅ 所有课程检查完成");
 }
 
 // ==============================================
