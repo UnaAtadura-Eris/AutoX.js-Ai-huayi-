@@ -1,9 +1,9 @@
 
 /**
- * @Description: AutoX.js 掌上华医自动学习考试脚本（免费版）
- * @version: 2.1.0
+ * @Description: AutoX.js 掌上华医自动学习考试脚本
+ * @version: 2.1.3
  * @Author: UnaAtadura
- * @Date: 2026.04.30 11:08
+ * @Date: 2026.05.02 11:08
  */
 
 
@@ -18,15 +18,11 @@ let 当前选项字母 = "A";
 let 考试次数 = 0;
 const 最大考试次数 = 5;
 
+
 // ==============================================
 // UI 布局
 // ==============================================
 auto.waitFor();
-
-
-
-初始化音量控制();
-
 
 // ==============================================
 // 音量控制（新增）
@@ -80,8 +76,8 @@ function createFloatWindow() {
     // 创建悬浮窗（使用标准颜色格式 #AARRGGBB）
     floatyWindow = floaty.rawWindow(
         // #80000000 是半透明黑色，如果想要更透明可以调整前两位（如 #40000000），或者使用纯黑色 #00000000 完全透明背景
-        <frame bg="#80000000" gravity="left" padding="8">  
-        {/* <frame bg="#000000" gravity="left" padding="8"> */}
+        <frame bg="#80000000" gravity="left" padding="8">
+            {/* <frame bg="#000000" gravity="left" padding="8"> */}
             <vertical>
                 <text id="title" text="日志输出" textColor="#FF4CAF50" textSize="15sp" />
                 <scroll id="scroll" w="*" h="0" layout_weight="1">
@@ -101,7 +97,7 @@ function createFloatWindow() {
     // 注册脚本退出时的清理事件（只一次）
     if (!exitListenerRegistered) {
         events.on('exit', function () {
-            恢复音量();       
+            恢复音量();
             closeFloatWindow();
         });
         exitListenerRegistered = true;
@@ -246,7 +242,7 @@ function 识别对错并更新题库() {
             let 纯题干 = 清洗题目(完整题目);
             题库[纯题干] = 正确选项;
             log("记录题目：" + 纯题干 + " → " + 正确选项);
-        }else{
+        } else {
             log("无正确答案记录");
         }
     }
@@ -298,7 +294,7 @@ function do_test() {
             let 完成 = id("com.huayi.cme:id/btn_test_result_left").findOne(3000);
             if (完成) 完成.click();
             break;
-        }        
+        }
         log("未通过，收集答案...");
         识别对错并更新题库();
         if (考试次数 >= 最大考试次数) { log("达到最大次数"); return; }
@@ -333,7 +329,7 @@ function test_card() {
             id("com.huayi.cme:id/btnAlertDialogConfirm").click();
         }
         if (id("rl_video_kaoshi").exists()) id("rl_video_kaoshi").click();
-        do_test();   
+        do_test();
         sleep(2500);
         targetList = textMatches(/.*待考试.*/).find();
     }
@@ -389,7 +385,7 @@ function handleClassThinking() {
 
 function 关闭温馨提示() {
     if (!textContains("温馨提示").exists()) return;
-    log("关闭温馨提示");    
+    log("关闭温馨提示");
     let ok = id("com.huayi.cme:id/btn_confirm_Positive").findOne(1000);
     if (ok) ok.click();
 }
@@ -419,7 +415,7 @@ function play_video() {
         }
         handleClassThinking();
         关闭温馨提示()
-        showTimeText();
+        // showTimeText();
 
         // 检测完成文字
         if (text("本课件已学习完毕").exists()) {
@@ -436,99 +432,112 @@ function play_video() {
             break;
         }
 
-        let playDuration = id("com.huayi.cme:id/playDuration").findOne(2000);
-        let videoDuration = id("com.huayi.cme:id/videoDuration").findOne(2000);
-        if (!playDuration || !videoDuration) {
-            log("⚠️ 未找到时间文本，继续等待...");
-            sleep(10 * 1000);
-            continue;
-        }
+        // let playDuration = id("com.huayi.cme:id/playDuration").findOne(2000);
+        // let videoDuration = id("com.huayi.cme:id/videoDuration").findOne(2000);
+        // if (!playDuration || !videoDuration) {
+        //     log("⚠️ 未找到时间文本，继续等待...");
+        //     sleep(10 * 1000);
+        //     continue;
+        // }
 
-        let playText = playDuration.text();
-        let videoText = videoDuration.text();
-        let playSec = timeToSeconds(playText);
-        let videoSec = timeToSeconds(videoText);
+        // let playText = playDuration.text();
+        // let videoText = videoDuration.text();
+        // let playSec = timeToSeconds(playText);
+        // let videoSec = timeToSeconds(videoText);
 
-        if (videoSec <= 0) {
-            sleep(2000);
-            continue;
-        }
+        // if (videoSec <= 0) {
+        //     sleep(2000);
+        //     continue;
+        // }
 
-        let percent = playSec / videoSec;
-        log(`当前进度：${(percent * 100).toFixed(2)}% (${playText}/${videoText})`);
+        // let percent = playSec / videoSec;
+        // log(`当前进度：${(percent * 100).toFixed(2)}% (${playText}/${videoText})`);
 
         // 进度回退 → 播放完成（循环播放）
-        if (lastPercent > 0 && percent < lastPercent) {
-            log("✅ 检测到进度倒退，视频已播放完毕");
-            back();
-            break;
-        }
+        // if (lastPercent > 0 && percent < lastPercent) {
+        //     log("✅ 检测到进度倒退，视频已播放完毕");
+        //     back();
+        //     break;
+        // }
 
-        if (percent >= 0.999 || playSec >= videoSec) {
-            log("✅ 视频即将播放完成，等待10秒后退出");
-            sleep(10 * 1000);
-            if (text("本课件已学习完毕").exists()) {
-                id("com.huayi.cme:id/btn_test_result_left").click();
-            } else {
-                back();
-            }
-            break;
-        }
+        // if (percent >= 0.99999 || playSec >= videoSec) {
+        //     log("✅ 视频即将播放完成，等待10秒后退出");
+        //     sleep(10 * 1000);
+        //     if (text("本课件已学习完毕").exists()) {
+        //         id("com.huayi.cme:id/btn_test_result_left").click();
+        //     } else {
+        //         back();
+        //     }
+        //     break;
+        // }
 
-        lastPercent = percent;
-        sleep(10 * 1000);
+        // lastPercent = percent;
+        sleep(60 * 1000);
     }
     sleep(1000);
 }
 
 function study_card() {
-    let targetList = textMatches(/.*(未学习|播放至).*/).find();
-    if (targetList.length === 0) { log("无未学习"); return; }
-    log("找到" + targetList.length + "个未学");
-    sleep(1500);
-    for (let i = 0; i < targetList.length; i++) {
-        let view = targetList[i];
-        let card = null;
-        let temp = view;
-        for (let k = 0; k < 8; k++) {
-            if (!temp) break;
-            if (temp.id() === "com.huayi.cme:id/rl_item_course_detail") {
-                card = temp; break;
+    log("=== 开始学习未学习课程===");
+    
+    // 循环：一直找，直到没有符合条件的课程
+    while (true) {
+        // 每次都重新获取所有卡片（关键！）
+        let allCards = id("com.huayi.cme:id/rl_item_course_detail").find();
+        let foundValidCard = false;
+
+        // 遍历找【第一个】符合条件的
+        for (let i = 0; i < allCards.length; i++) {
+            let card = allCards[i];
+            let textViews = card.find(className("android.widget.TextView"));
+            let hasUnstudy = false;
+            let hasInteractive = false;
+
+            for (let j = 0; j < textViews.length; j++) {
+                let t = textViews[j].text().trim();
+                if (t.includes("未学习")|| t.includes("播放至") ) hasUnstudy = true;
+                if (t.includes("互动病例演练")) hasInteractive = true;
             }
-            temp = temp.parent();
+
+            // 满足条件：未学习 且 不是互动病例
+            if (hasUnstudy && !hasInteractive) {
+                log("✅ 找到有效未学习课程，开始学习");
+                card.click();
+                sleep(1000);     
+                play_video();
+                // log("✅ 假装学完");
+                back(); sleep(1000);                
+                foundValidCard = true;
+                break; // 学完一个，立刻重新找下一个
+            }
         }
-        if (!card) { log("跳过"); continue; }
-        
-        // 检查卡片内是否包含“互动病例演练”文本，若包含则跳过
-        let hasInteractive = card.findOne(text("互动病例演练"));
-        if (hasInteractive) {
-            log("跳过互动病例演练"); 
-            continue;
+
+        // 再也找不到了，退出
+        if (!foundValidCard) {
+            log("=== 所有未学习课程已完成 ===");
+            back();sleep(1000);  
+            break;
         }
-        
-        card.click(); sleep(3000);
-        // play_video();
-        // sleep(2500);
-        targetList = textMatches(/.*(未学习|播放至).*/).find();
     }
 }
 
-
 function auto_study() {
-    let courses = id("com.huayi.cme:id/ll_mylike_course").find();
-    if (courses.length === 0) { log("无课程"); return; }
-    for (let i = 0; i < courses.length; i++) {
-        courses[i].click(); sleep(2000);
-        for (let k = 0; k < 3; k++) {
-            if (textContains("未学习").exists() || textContains("播放至").exists()) {
-                study_card();
-            } else {
-                back(); sleep(1000);
-                break
-            }
-        }
-        // courses = id("com.huayi.cme:id/ll_mylike_course").find();
+    const courseId = "com.huayi.cme:id/ll_mylike_course";
+    let courses = id(courseId).find();
+    if (courses.length === 0) {
+        log("未找到任何课程");
+        return;
     }
+    log("找到 " + courses.length + " 个课程");
+    for (let i = 0; i < courses.length; i++) {
+        log("正在打开第 " + (i + 1) + " 个课程");
+        courses[i].click();
+        sleep(2000);
+        study_card(); 
+        // 重新获取课程列表，避免界面刷新导致控件失效
+        courses = id(courseId).find();
+    }
+    log("✅ 所有课程检查完成");
 }
 
 // ==============================================
@@ -545,7 +554,7 @@ function start_app() {
     log("启动掌上华医");
     if (!launchApp("掌上华医")) { log("未安装掌上华医"); return false; }
     log("正在启动，请稍等5秒...");
-    sleep(5*1000);
+    sleep(5 * 1000);
     for (let i = 0; i < 5; i++) {
         if (id("iv_home_sys").exists()) { log("已到主页"); break; }
         back(); sleep(500);
@@ -563,6 +572,40 @@ function start_app() {
 }
 
 
+// ==============================================
+// 主函数
+// ==============================================
+
+function main() {
+    auto.waitFor();
+    ScreenCapture();
+    console.show();
+    let originalVolume = device.getMusicVolume();
+    log("开启静音");
+    device.setMusicVolume(0);
+    let startTime = new Date().getTime();
+    if (!start_app()) {
+        log("启动失败，退出");
+        engines.stopAll();
+        return;
+    }
+    // 可根据需要选择执行学习或考试
+    auto_study();   // 先学习
+    auto_test(); // 需要考试时取消注释
+
+    let endTime = new Date().getTime();
+    log("运行结束，共耗时" + (parseInt(endTime - startTime)) / 1000 + "秒");
+    log("恢复原来音量:" + originalVolume);
+    device.setMusicVolume(originalVolume);
+
+    threads.shutDownAll();
+    console.hide();
+    engines.stopAll();
+}
 
 
-study_card()
+
+// main();
+// study_card()
+auto_study()
+// demo()
