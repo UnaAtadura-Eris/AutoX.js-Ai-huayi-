@@ -1,9 +1,9 @@
 
 /**
- * @Description: AutoX.js 掌上华医自动学习考试脚本
- * @version: 2.1.3
+ * @Description: AutoX.js 掌上华医自动学习考试脚本(修改答案识别对错逻辑)
+ * @version: 2.2.0
  * @Author: UnaAtadura
- * @Date: 2026.05.02 11:08
+ * @Date: 2026.05.04 16:08
  */
 
 
@@ -16,7 +16,7 @@ let 题库 = 读取题库();
 let 上一题文字 = "";
 let 当前选项字母 = "A";
 let 考试次数 = 0;
-const 最大考试次数 = 5;
+const 最大考试次数 = 6;
 
 
 // ==============================================
@@ -216,38 +216,51 @@ function 提取答案字母(str) {
 
 function 识别对错并更新题库() {
     sleep(1000);
-    let screen = captureScreen();
+  
+    // 找对错图标
     let resultIcons = id("iv_item_test_result_weitongguo").find();
-    if (resultIcons.length === 0) {
-        screen.recycle();
-        return;
-    }
+
     for (let i = 0; i < resultIcons.length; i++) {
         let icon = resultIcons[i];
         let bounds = icon.bounds();
-        let hasGreen = false, hasRed = false;
-        for (let x = bounds.left; x < bounds.right; x++) {
-            for (let y = bounds.top; y < bounds.bottom; y++) {
-                let color = images.pixel(screen, x, y);
-                let r = colors.red(color), g = colors.green(color), b = colors.blue(color);
-                if (g > r + 40 && g > b + 40) { hasGreen = true; x = 9999; y = 9999; break; }
-                if (r > g + 40 && r > b + 40) { hasRed = true; x = 9999; y = 9999; break; }
-            }
+        
+        // ======================================
+        // 核心：根据高度判断 对/错
+        // ======================================
+        let height = bounds.height(); // 获取控件高度
+        let isRight = false;
+
+        if (height === 21) {
+            isRight = true;  // 高度21 = 答对 ✅
+            log("第"+(i+1)+"题：高度21 → 正确");
+        } else if (height === 26) {
+            isRight = false; // 高度26 = 答错 ❌
+            log("第"+(i+1)+"题：高度26 → 错误");
+        } else {
+            log("第"+(i+1)+"题：未知高度("+height+")，跳过");
+            continue;
         }
+
+        // 找题目
         let 题目区域 = icon.parent().findOne(id("tv_item_title"));
         if (!题目区域) continue;
+        
         let 完整题目 = 题目区域.text().trim();
         let 正确选项 = 提取答案字母(完整题目);
-        if (hasGreen && 正确选项) {
+
+        // ======================================
+        // 只有正确才记录到题库
+        // ======================================
+        if (isRight && 正确选项) {
             let 纯题干 = 清洗题目(完整题目);
             题库[纯题干] = 正确选项;
             log("记录题目：" + 纯题干 + " → " + 正确选项);
-        }else{
-            log("无正确答案记录");
+        } else {
+            log("此题不记录（错误/无答案）");
         }
     }
+
     保存题库();
-    screen.recycle();
 }
 
 // ==============================================
@@ -288,20 +301,37 @@ function do_test() {
         log("第" + 考试次数 + "次考试");
         开始做题();
         sleep(2000);
-        let 未通过 = textContains("考试未通过").findOne(5000);
-        if (!未通过) {
+        let 通过 = textContains("考试通过").findOne(3000);
+        let 未通过 = textContains("考试未通过").findOne(3000);
+        if (通过) {
             log("考试通过！");
-            let 完成 = id("com.huayi.cme:id/btn_test_result_left").findOne(3000);
-            if (完成) 完成.click();
+            let 返回 = id("com.huayi.cme:id/btn_test_result_left").findOne(3000);
+            if (返回) 返回.click();
             break;
-        }        
-        log("未通过，收集答案...");
-        识别对错并更新题库();
-        if (考试次数 >= 最大考试次数) { log("达到最大次数"); return; }
-        let 重考 = id("com.huayi.cme:id/btn_test_result_right").findOne(3000);
-        if (重考) { 重考.click(); sleep(3500); }
-        当前选项字母 = 下一个字母(当前选项字母);
-        上一题文字 = "";
+        }else if (未通过) {
+            log("未通过，收集答案...");
+            识别对错并更新题库();
+            // ======================================
+            // ✅ 修正：只有 超过 最大次数(6) 才清空
+            // ======================================
+            if (考试次数 > 最大考试次数) {  
+                log("达到最大考试次数，清空题库...");
+                题库 = {};
+                files.write(题库文件路径, JSON.stringify(题库, null, 2));
+                log("✅ 题库已清空");
+                return;
+            }
+            let 重考 = id("com.huayi.cme:id/btn_test_result_right").findOne(3000);
+            if (重考) { 
+                重考.click(); 
+                sleep(3500); 
+            }
+            当前选项字母 = 下一个字母(当前选项字母);
+            上一题文字 = "";
+        }else {
+             log("未找到考试结果，可能界面异常，结束考试");
+             break;
+        }                
     }
 }
 
@@ -323,12 +353,13 @@ function test_card() {
         }
         if (!card) { log("找不到卡片，跳过"); continue; }
         log("打开第" + (i + 1) + "个");
-        card.click(); sleep(5000);
-        if (textContains("请点击左下角“考试”按钮参加课后测试").exists()) {
+        card.click(); 
+        if (textContains("请点击左下角“考试”按钮参加课后测试").findOne(10*1000)) {
             log("✅ 检测到考试提示");
             id("com.huayi.cme:id/btnAlertDialogConfirm").click();
+            sleep(500);
         }
-        if (id("rl_video_kaoshi").exists()) id("rl_video_kaoshi").click();
+        if (id("rl_video_kaoshi").findOne(5*1000)) id("rl_video_kaoshi").click();
         do_test();   
         sleep(2500);
         targetList = textMatches(/.*待考试.*/).find();
@@ -506,7 +537,7 @@ function study_card() {
                 sleep(1000);     
                 play_video();
                 // log("✅ 假装学完");
-                back(); sleep(1000);                
+                sleep(1000);                
                 foundValidCard = true;
                 break; // 学完一个，立刻重新找下一个
             }
@@ -543,12 +574,7 @@ function auto_study() {
 // ==============================================
 // 启动与权限
 // ==============================================
-function ScreenCapture() {
-    setScreenMetrics(device.width, device.height);
-    if (!requestScreenCapture()) { log("截图权限失败"); exit(); }
-    log("截图权限OK");
-    sleep(1000);
-}
+
 
 function start_app() {
     log("启动掌上华医");
@@ -603,4 +629,6 @@ function main() {
     engines.stopAll();
 }
 
-main();
+// main();
+
+auto_test()
