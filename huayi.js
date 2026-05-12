@@ -1,4 +1,3 @@
-
 /**
  * @Description: AutoX.js 掌上华医自动学习考试脚本(重写答题模块，新增考试通过后写入题库功能，新增考试未通过后清空题库功能，新增考试结果识别逻辑，新增实时答题缓存机制，优化日志输出和界面交互)
  * @version: 2.2.1
@@ -6,28 +5,26 @@
  * @Date: 2026.05.04 16:08
  */
 
-
-
 // ==============================================
 // 配置
 // ==============================================
-const 题库文件路径 = files.path("./考试题库.json");
+let yinLiang = 0;
+let floatyWindow = null;
+let logText = "";
+let exitListenerRegistered = false;
 let 题库 = 读取题库();
 let 上一题文字 = "";
 let 当前选项字母 = "A";
 let 考试次数 = 0;
-const 最大考试次数 = 6;
 let 本次答题缓存 = []; // 新增：实时缓存本次考试的题目+选择的答案
-
-// ==============================================
-// UI 布局
-// ==============================================
-auto.waitFor();
-
-// ==============================================
-// 音量控制（新增）
-// ==============================================
-let yinLiang = 0;
+const 题库文件路径 = files.path("./考试题库.json");
+const 最大考试次数 = 6;
+// 重写 log 函数，同时输出到控制台和悬浮窗
+const originalLog = log;
+log = function (msg) {
+    originalLog(msg);
+    appendLog(String(msg));
+};
 
 
 function 初始化音量控制() {
@@ -45,12 +42,7 @@ function 恢复音量() {
     log("恢复原来音量:" + yinLiang);
 }
 
-// ==============================================
-// 悬浮窗相关
-// ==============================================
-let floatyWindow = null;
-let logText = "";
-let exitListenerRegistered = false;
+
 
 /**
  * 创建悬浮窗
@@ -139,12 +131,7 @@ function closeFloatWindow() {
     }
 }
 
-// 重写 log 函数，同时输出到控制台和悬浮窗
-const originalLog = log;
-log = function (msg) {
-    originalLog(msg);
-    appendLog(String(msg));
-};
+
 
 // ==============================================
 // 工具函数
@@ -216,6 +203,13 @@ function 提取答案字母(str) {
 
 function 识别对错并更新题库() {
     sleep(1000);
+    h = device.height; //屏幕高
+    w = device.width; //屏幕宽
+    x = (w / 3) * 2;
+    h1 = (h / 6) * 5;
+    h2 = (h / 6);
+    swipe(x, h1, x, h2, 500);
+    log("✅ 执行上滑动作");//如果对错图标没出现在屏幕会导致获取控件高度失败，所以执行上滑尽量显示图标
   
     // 找对错图标
     let resultIcons = id("iv_item_test_result_weitongguo").find();
@@ -440,6 +434,7 @@ function auto_test() {
         for (let k = 0; k < 3; k++) {
             if (textContains("待考试").exists()) {
                 test_card();
+                back();
             } else {
                 back(); sleep(1000);
                 break
@@ -635,10 +630,6 @@ function auto_study() {
     log("✅ 所有课程检查完成");
 }
 
-// ==============================================
-// 启动与权限
-// ==============================================
-
 
 function start_app() {
     log("启动掌上华医");
@@ -693,6 +684,6 @@ function main() {
     engines.stopAll();
 }
 
-main();
+// main();
 
 // auto_test()
