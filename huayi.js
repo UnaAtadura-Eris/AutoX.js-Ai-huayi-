@@ -42,6 +42,48 @@ function 恢复音量() {
     log("恢复原来音量:" + yinLiang);
 }
 
+function findClickableParent(obj) {
+    if (!obj) return null;
+    
+    let current = obj;
+    // 最多向上找 20 层（足够深）
+    for (let i = 0; i < 10; i++) {
+        if (!current) break;
+        
+        // 判断：这个控件是否可点击
+        if (current.clickable() === true) {
+            return current;
+        }
+        
+        // 不可点击就继续往上找
+        current = current.parent();
+    }
+    return null;
+}
+
+// 智能文字点击：自动找可点击的父控件，不用传层数 n！
+function 文字点击(wenzi) {
+    // 查找文字控件
+    let WZ = className("android.widget.TextView").text(wenzi).findOne();
+    if (!WZ) {
+        log("❌ 未找到文字：" + wenzi);
+        return false;
+    }
+
+    // 自动找可点击的父控件
+    let clickableObj = findClickableParent(WZ);
+    if (!clickableObj) {
+        log("❌ 找不到可点击的父控件：" + wenzi);
+        return false;
+    }
+
+    // 找到就点击
+    log("✅ 点击：" + wenzi);
+    clickableObj.click();
+    sleep(1000);
+    return true;
+}
+
 
 
 /**
@@ -202,7 +244,7 @@ function 提取答案字母(str) {
 }
 
 function 识别对错并更新题库() {
-    sleep(1000);
+    sleep(200);
     h = device.height; //屏幕高
     w = device.width; //屏幕宽
     x = (w / 3) * 2;
@@ -326,8 +368,7 @@ function do_test() {
         
         // 开始答题
         开始做题();
-        sleep(2000);
-
+        sleep(1000);
         // ======================================
         // 场景1：考试通过 → 用缓存写入题库
         // ======================================
@@ -378,7 +419,7 @@ function do_test() {
             let 重考按钮 = id("com.huayi.cme:id/btn_test_result_right").findOne(3000);
             if (重考按钮) { 
                 重考按钮.click(); 
-                sleep(3500); 
+                sleep(1000); 
             }
 
             // 切换下一个默认选项，循环盲选
@@ -394,53 +435,65 @@ function do_test() {
 }
 
 function test_card() {
-    let targetList = textMatches(/.*待考试.*/).find();
-    if (targetList.length === 0) { log("无待考试"); return; }
-    log("找到" + targetList.length + "个待考");
-    sleep(1500);
-    for (let i = 0; i < targetList.length; i++) {
-        let view = targetList[i];
-        let card = null;
-        let temp = view;
-        for (let k = 0; k < 8; k++) {
-            if (!temp) break;
-            if (temp.id() === "com.huayi.cme:id/rl_item_course_detail") {
-                card = temp; break;
-            }
-            temp = temp.parent();
+    while (true) {
+        // 查找所有“待考试”
+        let list = textMatches(/.*待考试.*/).find();
+        if (!list || list.length === 0) {
+            log("✅ 没有待考试了");
+            break;
         }
-        if (!card) { log("找不到卡片，跳过"); continue; }
-        log("打开第" + (i + 1) + "个");
-        card.click(); 
-        if (textContains("请点击左下角“考试”按钮参加课后测试").findOne(20*1000)) {
-            log("✅ 检测到考试提示");
-            id("com.huayi.cme:id/btnAlertDialogConfirm").click();
-            sleep(500);
+        文字点击("待考试")
+        sleep(1500);
+        // 弹窗处理
+        let tip = textContains("请点击左下角“考试”按钮参加课后测试").findOne(5000);
+        if (tip) {
+            log("✅ 检测到提示");
+            let ok = id("com.huayi.cme:id/btnAlertDialogConfirm").findOne(3000);
+            if (ok) ok.click();
+            sleep(1000);
         }
-        if (id("rl_video_kaoshi").findOne(5*1000)) id("rl_video_kaoshi").click();
-        do_test();   
-        sleep(2500);
-        targetList = textMatches(/.*待考试.*/).find();
+
+        // 点击考试按钮
+        let examBtn = id("rl_video_kaoshi").findOne(5000);
+        if (examBtn) {
+            examBtn.click();
+            sleep(1000);
+        }
+
+        // 执行答题
+        do_test();
+        sleep(1000);
+
     }
-    log("全部考试完成");
+    log("🎉 所有待考试完成");
 }
 
 function auto_test() {
-    let courses = id("com.huayi.cme:id/ll_mylike_course").find();
-    if (courses.length === 0) { log("无课程"); return; }
-    log("找到" + courses.length + "个课程");
-    for (let i = 0; i < courses.length; i++) {
-        courses[i].click(); sleep(2000);
-        for (let k = 0; k < 3; k++) {
-            if (textContains("待考试").exists()) {
-                test_card();
-                back();
-            } else {
-                back(); sleep(1000);
-                break
-            }
+    while (true) {
+        let courses = id("com.huayi.cme:id/ll_mylike_course").find();
+        if (!courses || courses.length === 0) {
+            log("❌ 没有课程");
+            return;
         }
-        courses = id("com.huayi.cme:id/ll_mylike_course").find();
+        log("课程数量：" + courses.length);
+        let hasTask = false;
+        for (let i = 0; i < courses.length; i++) {
+            courses[i].click();
+            sleep(1500);
+
+            if (textContains("待考试").exists()) {
+                log("👉 进入有待考试课程");
+                test_card();
+                hasTask = true;
+            }
+            back();
+            sleep(1500);
+        }
+
+        if (!hasTask) {
+            log("🎉 所有课程完成");
+            break;
+        }
     }
 }
 
@@ -685,5 +738,5 @@ function main() {
 }
 
 // main();
-
+auto_test()
 // auto_test()
