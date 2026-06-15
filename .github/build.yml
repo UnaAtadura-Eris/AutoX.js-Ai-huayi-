@@ -1,0 +1,52 @@
+name: Auto Build APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt update
+          sudo apt install -y zip unzip openjdk-17-jre wget
+
+      - name: Unzip APK template
+        run: |
+          mkdir apk
+          unzip template/Ai华医.apk -d apk
+
+      - name: Replace AutoX scripts
+        run: |
+          cp main.js apk/assets/project/
+          cp huayi.js apk/assets/project/
+          cp project.json apk/assets/project/
+          rm -rf apk/assets/project/res
+          cp -r res apk/assets/project/
+
+      - name: Repack APK
+        run: |
+          cd apk
+          zip -r ../app_unsigned.apk .
+
+      - name: Download signer
+        run: |
+          wget -O signer.jar https://github.com/patrickfav/uber-apk-signer/releases/latest/download/uber-apk-signer.jar
+
+      - name: Sign APK
+        run: |
+          java -jar signer.jar --apks app_unsigned.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: "*signed.apk"
