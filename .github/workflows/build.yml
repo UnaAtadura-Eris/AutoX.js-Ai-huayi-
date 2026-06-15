@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,33 +29,33 @@ jobs:
       - name: Unzip APK template
         run: unzip template/Ai华医.apk -d apk_unpacked
 
-      - name: Replace AutoX scripts
+      - name: Replace scripts
         run: |
-          cp main.js apk_unpacked/assets/project/
-          cp huayi.js apk_unpacked/assets/project/
-          cp project.json apk_unpacked/assets/project/
-          rm -rf apk_unpacked/assets/project/res
-          cp -r res apk_unpacked/assets/project/
+          cp main.js        apk_unpacked/assets/project/
+          cp huayi.js       apk_unpacked/assets/project/
+          cp project.json   apk_unpacked/assets/project/
+          rm -rf            apk_unpacked/assets/project/res
+          cp -r res         apk_unpacked/assets/project/
+
+      # ⚠️ 关键步骤：删除旧签名，否则安装必失败
+      - name: Remove old signature
+        run: rm -rf apk_unpacked/META-INF/CERT.SF apk_unpacked/META-INF/CERT.RSA apk_unpacked/META-INF/MANIFEST.MF
 
       - name: Repack APK (unaligned)
         run: |
           cd apk_unpacked
           zip -r -X ../app_unaligned.apk .
 
-      - name: Zipalign APK
+      - name: Zipalign
         run: zipalign -v -p 4 app_unaligned.apk app_unsigned.apk
 
-      - name: Sign APK with debug keystore
+      - name: Sign APK
         run: |
-          # 生成临时 debug keystore（每次 CI 都一样的参数，可替换为 Secrets 里的正式 keystore）
           keytool -genkeypair -v \
-            -keystore debug.jks \
-            -alias debugkey \
-            -keyalg RSA -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, S=Debug, C=US"
+            -keystore debug.jks -alias debugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Ai,O=Huayi,C=CN"
 
           apksigner sign \
             --ks debug.jks \
@@ -62,11 +65,11 @@ jobs:
             --out app-signed.apk \
             app_unsigned.apk
 
-      - name: Verify APK signature
+      - name: Verify
         run: apksigner verify --verbose app-signed.apk
 
-      - name: Upload APK artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Ai华医-${{ github.run_number }}
+          name: Ai华医-v${{ github.run_number }}
           path: app-signed.apk
