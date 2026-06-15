@@ -14,39 +14,59 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install tools
-        run: |
-          sudo apt update
-          sudo apt install -y zip unzip openjdk-17-jre wget
+        run: sudo apt-get update && sudo apt-get install -y zipalign apksigner
 
       - name: Unzip APK template
-        run: |
-          mkdir apk
-          unzip template/Ai华医.apk -d apk
+        run: unzip template/Ai华医.apk -d apk_unpacked
 
       - name: Replace AutoX scripts
         run: |
-          cp main.js apk/assets/project/
-          cp huayi.js apk/assets/project/
-          cp project.json apk/assets/project/
-          rm -rf apk/assets/project/res
-          cp -r res apk/assets/project/
+          cp main.js apk_unpacked/assets/project/
+          cp huayi.js apk_unpacked/assets/project/
+          cp project.json apk_unpacked/assets/project/
+          rm -rf apk_unpacked/assets/project/res
+          cp -r res apk_unpacked/assets/project/
 
-      - name: Repack APK
+      - name: Repack APK (unaligned)
         run: |
-          cd apk
-          zip -r ../app_unsigned.apk .
+          cd apk_unpacked
+          zip -r -X ../app_unaligned.apk .
 
-      - name: Download signer
-        run: |
-          wget -O signer.jar https://github.com/patrickfav/uber-apk-signer/releases/latest/download/uber-apk-signer.jar
+      - name: Zipalign APK
+        run: zipalign -v -p 4 app_unaligned.apk app_unsigned.apk
 
-      - name: Sign APK
+      - name: Sign APK with debug keystore
         run: |
-          java -jar signer.jar --apks app_unsigned.apk
+          # 生成临时 debug keystore（每次 CI 都一样的参数，可替换为 Secrets 里的正式 keystore）
+          keytool -genkeypair -v \
+            -keystore debug.jks \
+            -alias debugkey \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, S=Debug, C=US"
+
+          apksigner sign \
+            --ks debug.jks \
+            --ks-key-alias debugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out app-signed.apk \
+            app_unsigned.apk
+
+      - name: Verify APK signature
+        run: apksigner verify --verbose app-signed.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk
-          path: "*signed.apk"
+          name: Ai华医-${{ github.run_number }}
+          path: app-signed.apk
