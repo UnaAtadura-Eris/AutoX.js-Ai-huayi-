@@ -1,30 +1,68 @@
+"ui";
 /**
- * @Description: AutoX.js 掌上华医自动学习考试脚本(重写答题模块，新增考试通过后写入题库功能，新增考试未通过后清空题库功能，新增考试结果识别逻辑，新增实时答题缓存机制，优化日志输出和界面交互)
- * @version: 2.2.2
+ * @Description: AutoX.js 掌上华医自动学习考试脚本(UI版)
+ * @version: 2.3.0
  * @Author: UnaAtadura
- * @Date: 2026.05.16 16:08
+ * @Date: 2026.06.15 11:00
  */
+console.setGlobalLogConfig({
+    "file": "/sdcard/脚本/HuaYi运行日志.txt"
+});
 
 // ==============================================
 // 配置
 // ==============================================
+
 let yinLiang = 0;
-let floatyWindow = null;
-let logText = "";
-let exitListenerRegistered = false;
+const 题库文件路径 = files.path("./考试题库.json");
 let 题库 = 读取题库();
 let 上一题文字 = "";
 let 当前选项字母 = "A";
 let 考试次数 = 0;
-let 本次答题缓存 = []; // 新增：实时缓存本次考试的题目+选择的答案
-const 题库文件路径 = files.path("./考试题库.json");
 const 最大考试次数 = 6;
-// 重写 log 函数，同时输出到控制台和悬浮窗
-const originalLog = log;
-log = function (msg) {
-    originalLog(msg);
-    appendLog(String(msg));
-};
+let 本次答题缓存 = []; // 新增：实时缓存本次考试的题目+选择的答案
+// ==============================================
+// 悬浮窗相关
+// ==============================================
+let floatyWindow = null;
+let logText = "";
+let exitListenerRegistered = false;
+
+auto.waitFor();
+
+// ======================
+// 免责弹窗
+// ======================
+dialogs.confirm("免责声明", "本脚本仅用于个人学习、技术研究使用。\n\n使用本脚本所产生的一切风险、账号封禁、设备限制、经济损失等，均由使用者自行承担，作者不承担任何责任。\n\n使用即代表已阅读并同意本声明。");
+
+
+初始化音量控制();
+ui.layout(
+    <vertical padding="16" bg="#FFF5F5F5">
+        <text text="掌上华医自动学习考试系统" textSize="20sp" gravity="center" margin="8" textColor="#FF2196F3" />
+        <text text="v2.1.3" textSize="14sp" gravity="center" marginBottom="16" textColor="#FF666666" />
+        <button id="btn_study" text="📺 只看视频" style="Widget.AppCompat.Button.Colored" margin="8" />
+        <button id="btn_exam" text="📝 只考试" style="Widget.AppCompat.Button.Colored" margin="8" visibility="visible" />
+        <button id="btn_both" text="🚀 先看视频再考试（慎用）" style="Widget.AppCompat.Button.Colored" margin="8" visibility="visible" />
+        <button id="btn_help" text="❓ 使用说明" style="Widget.AppCompat.Button" margin="8" />
+        <button id="donation" text="💖 觉得好用就打赏一下呗" style="Widget.AppCompat.Button" margin="8"/>
+        <text id="txt_status" text="状态：等待操作" textSize="14sp" marginTop="16" textColor="#FF4CAF50" />
+        <text text="{{
+            '作者联系方式：\n'+
+            '抖音：70749010681\n'+
+            '小红书：95663982160'
+            }}" textSize="12sp" gravity="center" marginTop="16" textColor="#FF999999" />
+    </vertical>
+);
+
+// 状态更新函数
+function setStatus(msg) {
+    ui.run(() => {
+        ui.txt_status.setText("状态：" + msg);
+    });
+}
+
+
 
 
 function 初始化音量控制() {
@@ -173,7 +211,12 @@ function closeFloatWindow() {
     }
 }
 
-
+// 重写 log 函数，同时输出到控制台和悬浮窗
+const originalLog = log;
+log = function (msg) {
+    originalLog(msg);
+    appendLog(String(msg));
+};
 
 // ==============================================
 // 工具函数
@@ -243,8 +286,7 @@ function 提取答案字母(str) {
     return m ? m[1] : null;
 }
 
-function 识别对错并更新题库() {
-    sleep(200);
+function 识别对错并更新题库() {    
     h = device.height; //屏幕高
     w = device.width; //屏幕宽
     x = (w / 3) * 2;
@@ -252,6 +294,7 @@ function 识别对错并更新题库() {
     h2 = (h / 6);
     swipe(x, h1, x, h2, 500);
     log("✅ 执行上滑动作");//如果对错图标没出现在屏幕会导致获取控件高度失败，所以执行上滑尽量显示图标
+    sleep(1000);
   
     // 找对错图标
     let resultIcons = id("iv_item_test_result_weitongguo").find();
@@ -325,7 +368,7 @@ function 开始做题() {
             let 交卷 = id("com.huayi.cme:id/tv_answer_question_jiaojuan").findOne(2000);
             if (交卷) { 
                 交卷.click(); 
-                sleep(2000); 
+                sleep(1000); 
             }
             break;
         }
@@ -368,7 +411,8 @@ function do_test() {
         
         // 开始答题
         开始做题();
-        sleep(1000);
+        sleep(500);
+
         // ======================================
         // 场景1：考试通过 → 用缓存写入题库
         // ======================================
@@ -419,7 +463,7 @@ function do_test() {
             let 重考按钮 = id("com.huayi.cme:id/btn_test_result_right").findOne(3000);
             if (重考按钮) { 
                 重考按钮.click(); 
-                sleep(1000); 
+                sleep(3500); 
             }
 
             // 切换下一个默认选项，循环盲选
@@ -683,6 +727,15 @@ function auto_study() {
     log("✅ 所有课程检查完成");
 }
 
+// ==============================================
+// 启动与权限
+// ==============================================
+// function ScreenCapture() {
+//     setScreenMetrics(device.width, device.height);
+//     if (!requestScreenCapture()) { log("截图权限失败"); exit(); }
+//     log("截图权限OK");
+//     sleep(1000);
+// }
 
 function start_app() {
     log("启动掌上华医");
@@ -707,36 +760,169 @@ function start_app() {
 
 
 // ==============================================
-// 主函数
+// 按钮事件（自动恢复音量）
 // ==============================================
+ui.btn_study.click(() => {
+    ui.btn_study.setEnabled(false);
+    ui.btn_exam.setEnabled(false);
+    ui.btn_both.setEnabled(false);
+    setStatus("准备学习...");
+    threads.start(function () {
+        if (!createFloatWindow()) {
+            setStatus("悬浮窗权限失败");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        // setStatus("请求截图...");
+        // ScreenCapture();
+        setStatus("启动应用...");
+        if (!start_app()) {
+            setStatus("启动失败,请检查是否登陆华医账号，登陆后彻底关闭APP后重来。");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        setStatus("学习中...");
+        auto_study();
+        setStatus("学习完成");
+        恢复音量();
+        closeFloatWindow();
+        exit();
+        ui.run(() => {
+            ui.btn_study.setEnabled(true);
+            ui.btn_exam.setEnabled(true);
+            ui.btn_both.setEnabled(true);
+        });
+    });
+});
 
-function main() {
-    auto.waitFor();
-    ScreenCapture();
-    console.show();
-    let originalVolume = device.getMusicVolume();
-    log("开启静音");
-    device.setMusicVolume(0);    
-    let startTime = new Date().getTime();
-    if (!start_app()) {
-        log("启动失败，退出");
-        engines.stopAll();
+ui.btn_exam.click(() => {
+    ui.btn_study.setEnabled(false);
+    ui.btn_exam.setEnabled(false);
+    ui.btn_both.setEnabled(false);
+    setStatus("准备考试...");
+    threads.start(function () {
+        if (!createFloatWindow()) {
+            setStatus("悬浮窗权限失败");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        // setStatus("请求截图...");
+        // ScreenCapture();
+        setStatus("启动应用...");
+        if (!start_app()) {
+            setStatus("启动失败");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        setStatus("考试中...");
+        auto_test();
+        setStatus("考试完成");
+        恢复音量();
+        closeFloatWindow();
+        exit();
+        ui.run(() => {
+            ui.btn_study.setEnabled(true);
+            ui.btn_exam.setEnabled(true);
+            ui.btn_both.setEnabled(true);
+        });
+    });
+});
+
+ui.btn_both.click(() => {
+    ui.btn_study.setEnabled(false);
+    ui.btn_exam.setEnabled(false);
+    ui.btn_both.setEnabled(false);
+    setStatus("准备完整流程...");
+    threads.start(function () {
+        if (!createFloatWindow()) {
+            setStatus("悬浮窗权限失败");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        // setStatus("请求截图...");
+        // ScreenCapture();
+        setStatus("启动应用...");
+        if (!start_app()) {
+            setStatus("启动失败");
+            ui.run(() => {
+                ui.btn_study.setEnabled(true);
+                ui.btn_exam.setEnabled(true);
+                ui.btn_both.setEnabled(true);
+            });
+            return;
+        }
+        setStatus("学习中...");
+        auto_study();
+        setStatus("考试中...");
+        auto_test();
+        setStatus("全部完成");
+        恢复音量();
+        closeFloatWindow();
+        exit();
+        ui.run(() => {
+            ui.btn_study.setEnabled(true);
+            ui.btn_exam.setEnabled(true);
+            ui.btn_both.setEnabled(true);
+        });
+    });
+});
+
+ui.btn_help.click(() => {
+    dialogs.alert(
+        "使用说明",
+        "1. 确保手机为安卓手机并已开启无障碍服务，首次使用考试功能会请求截图/录屏权限，请允许；\n" +
+        "2. 运行脚本前，先登录掌上华医账号，收藏想要学习的课程，点击对应功能后，将自动学习/考试；\n" +
+        "3. 某些极端或意外情况（如广告弹窗）可能会导致脚本失效，重启掌上华医App及脚本即可；\n" +
+        "4. 随缘更新，随时跑路，有bug可以反馈，但不一定修复...\n" +
+        "5. 学习/考试过程中请勿操作手机；\n" +
+        "6. 打开视频检测到当前为移动网络，会自动点击继续，请在WiFi环境下运行，避免浪费流量；\n" +
+        "7. 如需停止脚本请按‘音量上键’停止所有脚本；\n" +
+        "8. 有互动病例演练的课程尽量别选，可能有bug；\n" +
+        "9. 如有问题请联系作者\n小红书：95663982160\n抖音：70749010681"
+    );
+});
+
+ui.donation.click(() => {
+    let imgPath = files.path("./res/微信收款码.png");
+    if (!files.exists(imgPath)) {
+        log("收款码图片未找到，请将图片放在脚本目录下");
         return;
     }
-    // 可根据需要选择执行学习或考试
-    auto_study();   // 先学习
-    auto_test(); // 需要考试时取消注释
-
-    let endTime = new Date().getTime();
-    log("运行结束，共耗时" + (parseInt(endTime - startTime)) / 1000 + "秒");
-    log("恢复原来音量:" + originalVolume);
-    device.setMusicVolume(originalVolume);
-
-    threads.shutDownAll();
-    console.hide();
-    engines.stopAll();
-}
-
-// main();
-auto_test()
-// auto_test()
+    // 动态创建布局（注意：必须在 UI 线程中创建）
+    let dialogLayout = ui.inflate(
+        <vertical padding="16" bg="#FFFFFF">
+            <text text="微信扫一扫，支持作者" textSize="18sp" gravity="center" textColor="#000000" marginBottom="12" />
+            <img id="qr_img" src={"file://" + imgPath} width="240" height="240" gravity="center" />
+            <button id="closeBtn" text="关闭" marginTop="16" style="Widget.AppCompat.Button.Colored" />
+        </vertical>
+    , null, false);
+    // 创建对话框并显示
+    let dialog = dialogs.build({
+        customView: dialogLayout,
+        cancelable: true
+    }).show();
+    // 绑定关闭按钮点击事件
+    dialogLayout.closeBtn.on("click", () => {
+        dialog.dismiss();
+    });
+});
