@@ -1,13 +1,9 @@
-name: Auto Build APK
+name: Build Test APK (No Secrets)
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    branches: [ main ]   # 当推送到 main 分支时自动构建
+  workflow_dispatch:     # 也支持在 Actions 页面手动触发
 
 jobs:
   build:
@@ -17,59 +13,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install AutoX.js CLI
+        run: npm install -g autoxjs-cli
+
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          distribution: 'temurin'
+          java-version: '11'
 
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y zipalign apksigner
-
-      - name: Unzip APK template
-        run: unzip template/Ai华医.apk -d apk_unpacked
-
-      - name: Replace scripts
+      # 生成一个临时的 Debug Keystore（密码 android，别名 androiddebugkey）
+      - name: Generate debug keystore
         run: |
-          cp main.js        apk_unpacked/assets/project/
-          cp huayi.js       apk_unpacked/assets/project/
-          cp project.json   apk_unpacked/assets/project/
-          rm -rf            apk_unpacked/assets/project/res
-          cp -r res         apk_unpacked/assets/project/
+          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android -dname "CN=Android Debug, O=Android, C=US"
 
-      # ⚠️ 关键步骤：删除旧签名，否则安装必失败
-      - name: Remove old signature
-        run: rm -rf apk_unpacked/META-INF/CERT.SF apk_unpacked/META-INF/CERT.RSA apk_unpacked/META-INF/MANIFEST.MF
-
-      - name: Repack APK (unaligned)
+      # 打包并签名（使用 debug 密钥）
+      - name: Build APK with debug signature
         run: |
-          cd apk_unpacked
-          zip -r -X ../app_unaligned.apk .
+          autoxjs build \
+            -p android \
+            -o ./app-debug.apk \
+            --keystore debug.keystore \
+            --alias androiddebugkey \
+            --keystore-password android \
+            --alias-password android \
+            --minify
 
-      - name: Zipalign
-        run: zipalign -v -p 4 app_unaligned.apk app_unsigned.apk
-
-      - name: Sign APK
-        run: |
-          keytool -genkeypair -v \
-            -keystore debug.jks -alias debugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass android -keypass android \
-            -dname "CN=Ai,O=Huayi,C=CN"
-
-          apksigner sign \
-            --ks debug.jks \
-            --ks-key-alias debugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            --out app-signed.apk \
-            app_unsigned.apk
-
-      - name: Verify
-        run: apksigner verify --verbose app-signed.apk
-
-      - name: Upload
+      # 上传 APK 作为 Artifact，方便下载
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Ai华医-v${{ github.run_number }}
-          path: app-signed.apk
+          name: ai-huayi-debug
+          path: ./app-debug.apk

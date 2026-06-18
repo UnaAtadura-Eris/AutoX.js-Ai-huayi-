@@ -5,12 +5,6 @@
     "x86",
     "x86_64"
   ],
-  "assets": [
-    {
-      "form": "/storage/emulated/0/脚本/Ai华医",
-      "to": "/project"
-    }
-  ],
   "buildDir": "build",
   "build": {
     "build_id": null,
@@ -43,7 +37,6 @@
   ],
   "main": "main.js",
   "name": "Ai华医",
-  "outputPath": "/storage/emulated/0/脚本/Ai华医/build",
   "packageName": "com.huayi.Ai",
   "scripts": {},
   "signingConfig": {
